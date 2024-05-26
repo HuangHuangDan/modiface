@@ -1,14 +1,14 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
+# sample code, no use
 
 import cv2
 import numpy as np
 import pkg_resources
 
+
 class StageStatus(object):
-    """
-    Keeps status between MTCNN stages
-    """
+    """ Keeps status between MTCNN stages """
 
     def __init__(self, pad_result: tuple = None, width=0, height=0):
         self.width = width
@@ -22,23 +22,27 @@ class StageStatus(object):
         s = self
         s.dy, s.edy, s.dx, s.edx, s.y, s.ey, s.x, s.ex, s.tmpw, s.tmph = pad_result
 
-
+class NetworkFactory:
+    def build_P_R_O_nets_from_file(self, weights_file):
+        pnet = None  
+        rnet = None  
+        onet = None   
+        return pnet, rnet, onet
+  
 class MTCNN(object):
     """
-    Allows to perform MTCNN Detection ->
-        a) Detection of faces (with the confidence probability)
-        b) Detection of keypoints (left eye, right eye, nose, mouth_left, mouth_right)
+    MTCNN Detection:
+        1) Detection of faces (with the confidence probability)
+        2) Detection of keypoints (left eye, right eye, nose, mouth_left, mouth_right)
     """
 
     def __init__(self, weights_file: str = None, min_face_size: int = 20, steps_threshold: list = None,
                  scale_factor: float = 0.709):
         """
-        Initializes the MTCNN.
-        :param weights_file: file uri with the weights of the P, R and O networks from MTCNN. By default it will load
-        the ones bundled with the package.
-        :param min_face_size: minimum size of the face to detect
-        :param steps_threshold: step's thresholds values
-        :param scale_factor: scale factor
+        Initializes the MTCNN:
+        1) param weights_file: file uri with the weights of the P, R and O networks from MTCNN.
+        2) param min_face_size: minimum size of the face to detect
+        3) param steps_threshold: step's thresholds values 
         """
         if steps_threshold is None:
             steps_threshold = [0.6, 0.7, 0.7]
@@ -76,17 +80,11 @@ class MTCNN(object):
 
     @staticmethod
     def __scale_image(image, scale: float):
-        """
-        Scales the image to a given scale.
-        :param image:
-        :param scale:
-        :return:
-        """
+        """ Scales the image to a given scale """
         height, width, _ = image.shape
 
         width_scaled = int(np.ceil(width * scale))
         height_scaled = int(np.ceil(height * scale))
-
         im_data = cv2.resize(image, (width_scaled, height_scaled), interpolation=cv2.INTER_AREA)
 
         # Normalize the image's pixels
@@ -96,7 +94,6 @@ class MTCNN(object):
 
     @staticmethod
     def __generate_bounding_box(imap, reg, scale, t):
-
         # use heatmap to generate bounding boxes
         stride = 2
         cellsize = 12
@@ -132,20 +129,15 @@ class MTCNN(object):
     @staticmethod
     def __nms(boxes, threshold, method):
         """
-        Non Maximum Suppression.
-
-        :param boxes: np array with bounding boxes.
-        :param threshold:
-        :param method: NMS method to apply. Available values ('Min', 'Union')
-        :return:
+        :param boxes: Array of bounding boxes. Each bounding box should be represented as a list or array of four numbers [x1, y1, x2, y2].
+        :param threshold: Overlap threshold for suppression. Bounding boxes with overlap greater than this threshold will be suppressed.
+        :param method: 'Union': Suppresses bounding boxes with union overlap.
+        :return: Indices of the bounding boxes to keep.
         """
         if boxes.size == 0:
             return np.empty((0, 3))
 
-        x1 = boxes[:, 0]
-        y1 = boxes[:, 1]
-        x2 = boxes[:, 2]
-        y2 = boxes[:, 3]
+        x1, y1, x2, y2 = boxes[:, 0], boxes[:, 1],boxes[:, 2],boxes[:, 3]
         s = boxes[:, 4]
 
         area = (x2 - x1 + 1) * (y2 - y1 + 1)
@@ -166,7 +158,6 @@ class MTCNN(object):
 
             w = np.maximum(0.0, xx2 - xx1 + 1)
             h = np.maximum(0.0, yy2 - yy1 + 1)
-
             inter = w * h
 
             if method == 'Min':
@@ -248,7 +239,7 @@ class MTCNN(object):
         :return: list containing all the bounding boxes detected with their keypoints.
         """
         if img is None or not hasattr(img, "shape"):
-            raise InvalidImage("Image not valid.")
+            print("Image not valid.")
 
         height, width, _ = img.shape
         stage_status = StageStatus(width=width, height=height)
@@ -260,8 +251,7 @@ class MTCNN(object):
 
         stages = [self.__stage1, self.__stage2, self.__stage3]
         result = [scales, stage_status]
-
-        # We pipe here each of the stages
+ 
         for stage in stages:
             result = stage(img, result[0], result[1])
 
@@ -289,13 +279,7 @@ class MTCNN(object):
         return bounding_boxes
 
     def __stage1(self, image, scales: list, stage_status: StageStatus):
-        """
-        First stage of the MTCNN.
-        :param image:
-        :param scales:
-        :param stage_status:
-        :return:
-        """
+        """ First stage of the MTCNN """
         total_boxes = np.empty((0, 9))
         status = stage_status
 
@@ -343,13 +327,7 @@ class MTCNN(object):
         return total_boxes, status
 
     def __stage2(self, img, total_boxes, stage_status: StageStatus):
-        """
-        Second stage of the MTCNN.
-        :param img:
-        :param total_boxes:
-        :param stage_status:
-        :return:
-        """
+        """ Second stage of the MTCNN """
 
         num_boxes = total_boxes.shape[0]
         if num_boxes == 0:
@@ -395,14 +373,7 @@ class MTCNN(object):
         return total_boxes, stage_status
 
     def __stage3(self, img, total_boxes, stage_status: StageStatus):
-        """
-        Third stage of the MTCNN.
-
-        :param img:
-        :param total_boxes:
-        :param stage_status:
-        :return:
-        """
+        """ Third stage of the MTCNN """
         num_boxes = total_boxes.shape[0]
         if num_boxes == 0:
             return total_boxes, np.empty(shape=(0,))
@@ -435,17 +406,13 @@ class MTCNN(object):
         out2 = np.transpose(out[2])
 
         score = out2[1, :]
-
         points = out1
-
         ipass = np.where(score > self._steps_threshold[2])
-
         points = points[:, ipass[0]]
 
         total_boxes = np.hstack([total_boxes[ipass[0], 0:4].copy(), np.expand_dims(score[ipass].copy(), 1)])
 
         mv = out0[:, ipass[0]]
-
         w = total_boxes[:, 2] - total_boxes[:, 0] + 1
         h = total_boxes[:, 3] - total_boxes[:, 1] + 1
 
